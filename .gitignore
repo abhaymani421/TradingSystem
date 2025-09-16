@@ -1,0 +1,12 @@
+# Ignore executables
+*.exe
+*.out
+*.o
+
+# Ignore CSV/logs (optional)
+*.csv
+*.log
+
+# Ignore system files
+.DS_Store
+Thumbs.db

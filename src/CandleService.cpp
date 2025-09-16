@@ -1,0 +1,1 @@
+// generate OHLC (open,high,low,close) candles
