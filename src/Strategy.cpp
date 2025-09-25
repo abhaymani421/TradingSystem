@@ -1,7 +1,8 @@
+
 #include "../include/Strategy.h"
 #include <iostream>
 using namespace std;
-
+const int TEST_BUCKET_SIZE = 2;
 StrategyEMA::StrategyEMA(int shortPeriod, int longPeriod, SignalCallback cb)
     : shortPeriod_(shortPeriod),
       longPeriod_(longPeriod),
@@ -40,7 +41,7 @@ bool StrategyEMA::onNewMinuteCandle(const string &symbol, double open, double hi
     // add 1-minute candle to the 5-min bucket
     bucket5min_.push_back({open, high, low, close, timestamp});
 
-    if ((int)bucket5min_.size() < 5)
+    if ((int)bucket5min_.size() < TEST_BUCKET_SIZE)
         return false; // need 5 1-min candles
 
     // aggregate 5 1-min candles -> one 5-min candle
@@ -48,7 +49,7 @@ bool StrategyEMA::onNewMinuteCandle(const string &symbol, double open, double hi
     double c = bucket5min_.back().close;
     double h = bucket5min_[0].high;
     double l = bucket5min_[0].low;
-    for (int i = 1; i < 5; ++i)
+    for (int i = 1; i < TEST_BUCKET_SIZE; ++i)
     {
         if (bucket5min_[i].high > h)
             h = bucket5min_[i].high;

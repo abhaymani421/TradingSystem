@@ -1,9 +1,12 @@
+#include "../include/windows_wrapper.h"
 #include "../include/PriceService.h"
 #include "../include/CandleService.h"
 #include "../include/Strategy.h"
+#include "../include/ExecutionService.h"
 #include <windows.h>
 #include <fstream>
 #include <ctime>
+#include <iostream>
 using namespace std;
 
 int main()
@@ -19,14 +22,23 @@ int main()
     ofstream priceFile("data/prices.csv");
     priceFile << "time,symbol,ltp\n";
 
-    // Create strategy — short=5, long=20 (in 5-min candles)
-    StrategyEMA strategy(5, 20, [](const Signal &s)
+    // Pass PriceService instance to ExecutionService
+    ExecutionService execService(priceService);
+
+    // Create EMA strategy — short=5, long=20 (in 5-min candles)
+    StrategyEMA strategy(1, 2, [&](const Signal &s)
                          {
                              cout << "[Signal] " << (s.side == Side::BUY ? "BUY" : "SELL")
                                   << " " << s.symbol << " price=" << s.price
                                   << " time=" << ctime(&s.timestamp);
-                             // later this callback -> ExecutionService::placeOrder(...)
-                         });
+
+                             // Place order via ExecutionService
+                             // Using LIMIT order type for demo and fixed quantity 50
+                             execService.place_order(s.symbol, 
+                                                     (s.side == Side::BUY ? OrderSide::BUY : OrderSide::SELL),
+                                                     OrderType::LIMIT,
+                                                     s.price, 
+                                                     50); });
 
     size_t lastMinuteCount = 0;
     time_t start = time(0);
@@ -36,15 +48,15 @@ int main()
         double price = priceService.getPrice(symbol);
         time_t now = time(0);
 
-        // write raw tick
+        // Write raw tick to CSV
         char buf[20];
         strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", localtime(&now));
         priceFile << buf << "," << symbol << "," << price << "\n";
 
-        // feed into candle generator
+        // Feed tick into candle generator
         candleService.addPrice(symbol, price, now);
 
-        // check if new 1-min candle formed
+        // Check if a new 1-min candle formed
         auto curr = candleService.getCandles(symbol);
         if (curr.size() > lastMinuteCount)
         {
@@ -60,15 +72,21 @@ int main()
             lastMinuteCount = curr.size();
         }
 
+        // Update all orders based on latest LTP
+        execService.update_all_orders();
+
         cout << "Tick: " << price << " at " << buf << endl;
         Sleep(1000); // 1 second
     }
 
     priceFile.close();
 
-    // after loop
+    // After loop, save candles and positions
     candleService.logCandlesToCSV("data/candles.csv", symbol);
     candleService.printCandles(symbol);
+    execService.write_positions_csv("data/positions.csv");
+    execService.write_dashboard_csv("data/dashboard.csv");
+    // execService.overwrite_orders_csv(); // optional: full order snapshot
 
     return 0;
 }
